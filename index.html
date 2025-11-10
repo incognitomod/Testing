@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Binary Encoder</title>
+<style>
+  body {
+    font-family: monospace;
+    background: #111;
+    color: #0f0;
+    text-align: center;
+    padding: 20px;
+  }
+  input[type="file"] {
+    margin: 20px 0;
+  }
+  textarea {
+    width: 90%;
+    height: 200px;
+    background: #000;
+    color: #0f0;
+    border: 1px solid #0f0;
+    padding: 10px;
+  }
+  button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background: #0f0;
+    border: none;
+    color: #000;
+    font-weight: bold;
+    border-radius: 6px;
+  }
+  canvas { display: none; }
+</style>
+</head>
+<body>
+
+<h2>🧠 Image → Binary Encoder</h2>
+<p>Upload an image to get its 0/1 pixel data. Copy & use anywhere.</p>
+
+<input type="file" id="imgInput" accept="image/*">
+<br>
+<canvas id="canvas"></canvas>
+<textarea id="output" placeholder="Binary output will appear here..."></textarea>
+<br>
+<button id="copyBtn">Copy Output</button>
+
+<script>
+const imgInput = document.getElementById('imgInput');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const output = document.getElementById('output');
+const copyBtn = document.getElementById('copyBtn');
+
+imgInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const img = new Image();
+    img.onload = function() {
+      const w = 64; // downscale for smaller binary
+      const h = Math.floor(img.height * (w / img.width));
+      canvas.width = w;
+      canvas.height = h;
+      ctx.drawImage(img, 0, 0, w, h);
+      const data = ctx.getImageData(0, 0, w, h).data;
+      let binary = '';
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+        binary += avg > 127 ? '1' : '0';
+      }
+      output.value = binary;
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+copyBtn.addEventListener('click', () => {
+  output.select();
+  document.execCommand('copy');
+  copyBtn.innerText = 'Copied!';
+  setTimeout(() => copyBtn.innerText = 'Copy Output', 1000);
+});
+</script>
+
+</body>
+</html>
