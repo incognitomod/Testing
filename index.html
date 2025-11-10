@@ -1,156 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Prompt Guide</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f7f6;
-            color: #333;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 800px;
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            padding: 24px;
-            box-sizing: border-box; 
-        }
-        h1, h2, h3 {
-            color: #111;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 8px;
-        }
-        h1 { margin-top: 0; }
-        
-        .instructions {
-            background-color: #e6f7ff;
-            border: 1px solid #b3e0ff;
-            padding: 15px;
-            border-radius: 6px;
-        }
-
-        input[type="file"] {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            border: 2px dashed #007bff;
-            border-radius: 6px;
-            background-color: #fafdff;
-            cursor: pointer;
-            box-sizing: border-box;
-            margin-top: 15px;
-        }
-        
-        .preview-image {
-            max-width: 100%;
-            border-radius: 6px;
-            border: 1px solid #ddd;
-            background-color: #fafafa;
-            min-height: 50px;
-            margin-top: 15px;
-        }
-
-        .prompt-box {
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 15px;
-            margin-top: 15px;
-            font-family: "Courier New", Courier, monospace;
-            font-size: 0.95em;
-            position: relative;
-        }
-        .prompt-box button {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .prompt-box button:hover {
-            background-color: #0056b3;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Image Analyzer for Gemini Prompt</title>
+  <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #imageContainer { margin: 20px 0; }
+    #textPrompt { margin-top: 10px; font-style: italic; }
+    #status { color: #555; font-style: italic; }
+    #errorMsg { color: red; }
+  </style>
 </head>
 <body>
+  <h1>Upload Image to Generate Prompt for Gemini</h1>
+  <p>Upload an image, and this page will analyze it to generate a text prompt. Copy the prompt and paste it into Gemini (e.g., gemini.google.com) to generate a new image based on the description.</p>
+  <input type="file" id="imageUpload" accept="image/*" />
+  <div id="imageContainer"></div>
+  <div id="textPrompt"></div>
+  <div id="status"></div>
+  <div id="errorMsg"></div>
 
-    <div class="container">
-        <h1>🖼️ AI Image Prompt Guide</h1>
-        <p>This page helps you get the *correct* text prompt from an AI (like Gemini or ChatGPT) to recreate your images.</p>
-        
-        <div class="instructions">
-            <h3>How To Use This Page (The Correct Workflow)</h3>
-            <ol>
-                <li>Go to **Gemini** or **ChatGPT**.</li>
-                <li>Find the **upload button (📎)** and upload your image file.</li>
-                <li>Once your image is uploaded, **copy one of the prompts** from Step 2 below.</li>
-                <li>Paste the prompt into the chat box and press Send.</li>
-                <li>The AI will then analyze your picture and give you a new text prompt that you can use to generate similar images.</li>
-            </ol>
-        </div>
+  <script>
+    // Initialize the pipeline (this runs when the page loads)
+    let pipe;
+    (async () => {
+      try {
+        pipe = await pipeline("image-to-text", "Xenova/vit-gpt2-image-captioning");
+        // Optional: Use GPU if supported - uncomment if desired
+        // pipe = await pipeline("image-to-text", "Xenova/vit-gpt2-image-captioning", { device: "webgpu" });
+      } catch (error) {
+        console.error("Error loading model:", error);
+        document.getElementById("errorMsg").textContent = "Failed to load AI model. Please refresh the page.";
+      }
+    })();
 
-        <h2>Step 1: Upload Your Image (For Your Reference)</h2>
-        <p>Upload your image here just so you can see it while you work.</p>
-        <input type="file" id="imageUploader" accept="image/*">
-        <img id="preview" class="preview-image" src="" alt="Your image will appear here">
+    // DOM elements
+    const imageUpload = document.getElementById("imageUpload");
+    const imageContainer = document.getElementById("imageContainer");
+    const textPrompt = document.getElementById("textPrompt");
+    const status = document.getElementById("status");
+    const errorMsg = document.getElementById("errorMsg");
 
-        <h2>Step 2: Copy the "Prompt-Maker" Prompt</h2>
-        <p>After uploading your image to Gemini/ChatGPT, paste one of these prompts to get what you want.</p>
+    // Listen for image upload
+    imageUpload.addEventListener("change", async (e) => {
+      const image = e.target.files[0];
 
-        <h3>Prompt A (To get a generation prompt)</h3>
-        <div class="prompt-box" id="prompt-a-box">
-            <button onclick="copyToClipboard('prompt-a')">Copy</button>
-            <span id="prompt-a">Analyze the image I just uploaded and write a detailed text prompt for an AI image generator (like DALL-E) that would create a new image as similar as possible. Describe the subject, setting, art style, colors, lighting, and composition.</span>
-        </div>
+      if (!image) {
+        return errorMsg.textContent = "No file selected.";
+      }
+      
+      if (!image.type.startsWith("image/")) {
+        return errorMsg.textContent = "The uploaded file is not an image. Please try again.";
+      }
+      
+      if (image.type === "image/svg+xml") {
+        return errorMsg.textContent = "SVG images are not supported. Please try again.";
+      }
 
-        <h3>Prompt B (To get a "similar" image directly)</h3>
-        <div class="prompt-box" id="prompt-b-box">
-            <button onclick="copyToClipboard('prompt-b')">Copy</button>
-            <span id="prompt-b">Based on the image I just uploaded, please generate a new image that is 75% similar to this one. Match the art style, subject, and mood.</span>
-        </div>
-        
-    </div>
+      imageContainer.innerHTML = "";
+      errorMsg.textContent = "";
+      let imgURL = URL.createObjectURL(image);
+      const imageEl = document.createElement("img");
+      imageEl.src = imgURL;
+      imageEl.style.maxWidth = "100%";
+      imageContainer.appendChild(imageEl);
+      textPrompt.textContent = "";
+      await getTextPrompt(imgURL);
+    });
 
-    <script>
-        // --- Image Preview Logic ---
-        document.getElementById('imageUploader').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('preview').src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // --- Copy to Clipboard Logic ---
-        function copyToClipboard(elementId) {
-            const textToCopy = document.getElementById(elementId).innerText;
-            const button = document.querySelector(`#${elementId}-box button`);
-            
-            navigator.clipboard.writeText(textToCopy)
-                .then(() => {
-                    button.textContent = 'Copied!';
-                    setTimeout(() => { button.textContent = 'Copy'; }, 2000);
-                })
-                .catch(err => { console.error('Failed to copy text: ', err); });
-        }
-    </script>
-
+    // Function to get text prompt (caption) from the model
+    async function getTextPrompt(img) {
+      if (!pipe) {
+        return errorMsg.textContent = "AI model not loaded yet. Please wait or refresh.";
+      }
+      status.textContent = "Analyzing image and generating prompt...";
+      try {
+        const out = await pipe(img);
+        let description = out[0].generated_text;
+        // Capitalize first letter for better prompt
+        description = description[0].toUpperCase() + description.slice(1);
+        textPrompt.textContent = `Generated Prompt: "${description}" (Copy this and paste into Gemini to generate a new image.)`;
+      } catch (error) {
+        textPrompt.textContent = "Error generating prompt.";
+        console.error(error);
+      } finally {
+        status.textContent = "";
+      }
+    }
+  </script>
 </body>
 </html>
