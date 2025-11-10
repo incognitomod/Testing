@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image to Data</title>
+    <title>Image to Data Converter</title>
     
     <style>
         body {
@@ -23,7 +23,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             padding: 24px;
-            box-sizing: border-box; /* Ensures padding doesn't break layout */
+            box-sizing: border-box; 
         }
         h1 {
             color: #111;
@@ -50,7 +50,7 @@
         }
         textarea {
             width: 100%;
-            height: 200px;
+            height: 150px;
             margin-top: 15px;
             border: 1px solid #ccc;
             border-radius: 6px;
@@ -60,16 +60,13 @@
             box-sizing: border-box;
             resize: vertical;
         }
-        .preview-container {
-            text-align: center;
-            margin-top: 15px;
-        }
-        #preview {
+        .preview-image {
             max-width: 100%;
             border-radius: 6px;
             border: 1px solid #ddd;
             background-color: #fafafa;
             min-height: 50px;
+            margin-top: 15px;
         }
         .note {
             font-size: 0.9em;
@@ -80,68 +77,120 @@
             border-radius: 6px;
             margin-top: 15px;
         }
+        .button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95em;
+            margin-top: 10px;
+            float: right; /* Aligns button to the right */
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .button:active {
+            background-color: #004a99;
+        }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>🖼️ Image to Data Converter</h1>
-        <p>Upload an image, and this tool will generate the Base64 data string needed to recreate it.</p>
 
         <h2>Step 1: Upload Your Image</h2>
         <input type="file" id="imageUploader" accept="image/*">
 
         <h2>Step 2: Get the "Data" String</h2>
         <div class="note">
-            This string is the **Base64 Data URI**. It's a text-based representation of your image file that browsers and other programs can use to reconstruct the image perfectly.
+            This string is the **Base64 Data URI**—a text representation of your image.
         </div>
         <textarea id="outputData" readonly placeholder="Your image's data string will appear here..."></textarea>
+        
+        <div class="clearfix">
+            <button class="button" id="copyButton">Copy Data</button>
+        </div>
 
-        <h2>Step 3: Recreated Image</h2>
+        <h2>Step 3: Recreated Image (from Upload)</h2>
         <div class="note">
-            This image is being rendered *directly* from the data string above (not from your original file) to prove it works.
+            This image is rendered *from the data string above* to prove it works.
         </div>
-        <div class="preview-container">
-            <img id="preview" src="" alt="Image preview will appear here">
+        <img id="preview" class="preview-image" src="" alt="Image preview from upload">
+
+        <hr style="border: 0; border-top: 2px solid #eee; margin: 40px 0;">
+
+        <h2>Step 4: Test by Pasting</h2>
+        <div class="note">
+            Paste any Base64 data string (like the one you just copied) into the box below. The image will render live.
         </div>
+        <textarea id="pasteTestArea" placeholder="Paste your Base64 data string here..."></textarea>
+        
+        <h2>Step 5: Pasted Image Result</h2>
+        <img id="pastePreview" class="preview-image" src="" alt="Image preview from pasted data">
+
     </div>
 
     <script>
-        // Wait for the document to be fully loaded
         document.addEventListener("DOMContentLoaded", function() {
             
-            // Get references to the HTML elements
+            // Get references to all HTML elements
             const imageUploader = document.getElementById('imageUploader');
             const outputData = document.getElementById('outputData');
             const preview = document.getElementById('preview');
+            
+            // NEW elements
+            const copyButton = document.getElementById('copyButton');
+            const pasteTestArea = document.getElementById('pasteTestArea');
+            const pastePreview = document.getElementById('pastePreview');
 
-            // Listen for when the user selects a file
+            // --- Uploader Logic ---
             imageUploader.addEventListener('change', function(event) {
-                // Get the file object
                 const file = event.target.files[0];
-
-                // Check if a file was actually selected
                 if (file) {
-                    // Create a new FileReader object
-                    // This object can read files from the user's computer
                     const reader = new FileReader();
-
-                    // Set up the function to run when the reader finishes loading the file
                     reader.onload = function(e) {
-                        // e.target.result contains the Base64 data string
                         const dataUrl = e.target.result;
-
-                        // 1. Put the data string into the <textarea>
                         outputData.value = dataUrl;
-
-                        // 2. Use the same data string to set the <img> source
-                        // This "recreates" the image from the data
                         preview.src = dataUrl;
                     };
-
-                    // Tell the reader to start reading the file and encode it as a Data URL (Base64)
                     reader.readAsDataURL(file);
                 }
+            });
+
+            // --- NEW: Copy Button Logic ---
+            copyButton.addEventListener('click', function() {
+                if (!outputData.value) return; // Don't copy if empty
+
+                navigator.clipboard.writeText(outputData.value)
+                    .then(() => {
+                        // Success feedback
+                        copyButton.textContent = 'Copied!';
+                        setTimeout(() => {
+                            copyButton.textContent = 'Copy Data';
+                        }, 2000); // Reset text after 2 seconds
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy text: ', err);
+                        alert('Failed to copy. Please copy manually.');
+                    });
+            });
+
+            // --- NEW: Paste Test Logic ---
+            // 'input' event fires every time the text changes (including paste)
+            pasteTestArea.addEventListener('input', function() {
+                const pastedData = pasteTestArea.value;
+                
+                // Directly set the 'src' attribute. 
+                // The browser will render it if it's valid image data.
+                pastePreview.src = pastedData;
             });
         });
     </script>
